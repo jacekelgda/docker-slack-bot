@@ -3,6 +3,7 @@ import * as storageHandler from './handlers/storageHandler'
 import * as calendarHandler from './handlers/calendarHandler'
 import * as formatter from './util/formatter'
 import * as textInterpreter from './util/textInterpreter'
+import * as cron from './util/cron'
 import router from './controllers'
 
 import bodyParser from 'body-parser'
@@ -33,17 +34,22 @@ chatHandler.listener.on('ambient', (bot, message) => {
 async function startPlanningNewDay() {
   const listId = Date.now()
 
-  const auth = await calendarHandler.authorize()
-  const calendarEvents = await calendarHandler.listEvents(auth)
-  const responseMessage = await chatHandler.startPrivateConversation(listId)
+  const token = await storageHandler.getAuthToken()
+  if (token) {
+    const oauth2Client = await calendarHandler.authorize(token)
+    const calendarEvents = await calendarHandler.listEvents(oauth2Client)
+    const responseMessage = await chatHandler.startPrivateConversation(listId)
 
-  const events = formatter.processCalendarEvents(calendarEvents)
-  const tasks = formatter.processMessage(responseMessage)
+    const events = formatter.processCalendarEvents(calendarEvents)
+    const tasks = formatter.processMessage(responseMessage)
 
-  const newList = await storageHandler.createNewTasksList(listId, events.concat(tasks))
-  const currentList = await storageHandler.fetchList(listId)
+    const newList = await storageHandler.createNewTasksList(listId, events.concat(tasks))
+    const currentList = await storageHandler.fetchList(listId)
 
-  chatHandler.sendInteractiveMessageAsNewConversation(currentList, listId)
+    chatHandler.sendInteractiveMessageAsNewConversation(currentList, listId)
+  } else {
+    console.log('Please authorize app')
+  }
 }
 
 async function checkDoneTask(task) {
@@ -64,16 +70,18 @@ async function checkDoneTask(task) {
   })
 }
 
-//startPlanningNewDay()
+cron.startJob(startPlanningNewDay)
 
 var port = process.env.PORT || 3000
 app.listen(port)
 
 app.get('/', async function (req, res) {
   try {
-    const isAuthorized = await calendarHandler.checkAuth()
-    res.send('All good!')
+    const token = await storageHandler.getAuthToken()
+    const client = await calendarHandler.authorize(token)
+    res.send('Ok')
   } catch (e) {
+    console.log('Auth error:', e)
     const authUrl = await calendarHandler.generateAuthUrl()
     const html = `<a href="${authUrl}">Authenticate application with google api</a>
     <form action="/api/auth" method="post">
@@ -86,9 +94,9 @@ app.get('/', async function (req, res) {
   }
 })
 
-// if (!process.env.is_prod) {
-//   const opts = { subdomain:process.env.localtunnel_subdomain }
-//   const tunnel = localtunnel(port, opts, (err, tunnel) => {
-//       console.log('localtunnel url:', tunnel.url)
-//   })
-// }
+if (!process.env.is_prod) {
+  const opts = { subdomain:process.env.localtunnel_subdomain }
+  const tunnel = localtunnel(port, opts, (err, tunnel) => {
+      console.log('localtunnel url:', tunnel.url)
+  })
+}

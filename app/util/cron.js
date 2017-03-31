@@ -1,6 +1,6 @@
 import cron from 'node-cron'
 
-function startJob(job) {
+const startJob = (job) => {
   cron.schedule('* * * * *', () => {
     job()
   })

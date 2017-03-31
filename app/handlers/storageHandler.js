@@ -47,7 +47,7 @@ const fetchList = (id) => {
 
 const getCurrentListId = () => {
   return new Promise((resolve, reject) => {
-    const lastEntry = firebase.database().ref('lists').limitToLast(1);
+    const lastEntry = firebase.database().ref('lists').limitToLast(1)
     lastEntry.on('value', (snapshot) => {
       let listId;
       snapshot.forEach(function(data) {
@@ -100,6 +100,19 @@ const markTaskAchieved = (currentListId, index, item) => {
   firebase.database().ref('lists/' + currentListId + '/tasks/' + index).set(item)
 }
 
+const storeAuthToken = (token) => {
+  firebase.database().ref('auth/').set(token)
+}
+
+const getAuthToken = () => {
+  return new Promise((resolve, reject) => {
+    const token = firebase.database().ref('auth')
+    token.on('value', (snapshot) => {
+      resolve(snapshot.val())
+    })
+  })
+}
+
 export {
   createNewTasksList,
   fetchList,
@@ -108,5 +121,7 @@ export {
   persistTasksFromMessageToList,
   persistJournalMessageDetails,
   getListMetadata,
-  markTaskAchieved
+  markTaskAchieved,
+  storeAuthToken,
+  getAuthToken
 }
