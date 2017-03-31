@@ -8,13 +8,43 @@ const TOKEN_DIR = (process.env.HOME || process.env.HOMEPATH ||
     process.env.USERPROFILE) + '/.credentials/'
 const TOKEN_PATH = TOKEN_DIR + 'daily-planner-app.json'
 
+const checkAuth = () => {
+  return new Promise((resolve, reject) => {
+    fs.readFile(TOKEN_PATH, function(err, token) {
+      if (err) {
+        console.log('No token!')
+        reject(err)
+      } else {
+        console.log('ALL ok')
+        resolve('OK')
+      }
+    })
+  })
+}
+
+const generateAuthUrl = () => {
+  return new Promise((resolve, reject) => {
+    const oauth2Client = getOauthClient()
+    const authUrl = oauth2Client.generateAuthUrl({
+      access_type: 'offline',
+      scope: SCOPES
+    });
+
+    resolve(authUrl)
+  })
+}
+
+const getOauthClient = () => {
+  const clientSecret = process.env.google_api_client_secret
+  const clientId = process.env.google_api_client_id
+  const redirectUrl = process.env.google_api_redirect_url
+  const auth = new googleAuth()
+  return new auth.OAuth2(clientId, clientSecret, redirectUrl)
+}
+
 const authorize = (callback) => {
   return new Promise((resolve, reject) => {
-    const clientSecret = process.env.google_api_client_secret
-    const clientId = process.env.google_api_client_id
-    const redirectUrl = process.env.google_api_redirect_url
-    const auth = new googleAuth()
-    const oauth2Client = new auth.OAuth2(clientId, clientSecret, redirectUrl)
+    const oauth2Client = getOauthClient()
 
     fs.readFile(TOKEN_PATH, function(err, token) {
       if (err) {
@@ -25,6 +55,20 @@ const authorize = (callback) => {
         oauth2Client.credentials = JSON.parse(token)
         resolve(oauth2Client)
       }
+    })
+  })
+}
+
+const exchangeCodeToToken = (code) => {
+  return new Promise((resolve, reject) => {
+    const oauth2Client = getOauthClient()
+    oauth2Client.getToken(code, (err, token) => {
+      if (err) {
+        reject(err)
+      }
+      oauth2Client.credentials = token
+      storeToken(token)
+      resolve(oauth2Client)
     })
   })
 }
@@ -68,6 +112,7 @@ const storeToken = (token) => {
 }
 
 const listEvents = (auth) => {
+  console.log(auth)
   const calendar = google.calendar('v3')
   let timeMin = new Date()
   timeMin.setHours(0,0,0,0)
@@ -94,5 +139,8 @@ const listEvents = (auth) => {
 
 export {
   authorize,
-  listEvents
+  listEvents,
+  checkAuth,
+  generateAuthUrl,
+  exchangeCodeToToken
 }

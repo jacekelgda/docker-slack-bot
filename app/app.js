@@ -64,14 +64,31 @@ async function checkDoneTask(task) {
   })
 }
 
-startPlanningNewDay()
+//startPlanningNewDay()
 
 var port = process.env.PORT || 3000
 app.listen(port)
 
-if (!process.env.is_prod) {
-  const opts = { subdomain:process.env.localtunnel_subdomain }
-  const tunnel = localtunnel(port, opts, (err, tunnel) => {
-      console.log('localtunnel url:', tunnel.url)
-  })
-}
+app.get('/', async function (req, res) {
+  try {
+    const isAuthorized = await calendarHandler.checkAuth()
+    res.send('All good!')
+  } catch (e) {
+    const authUrl = await calendarHandler.generateAuthUrl()
+    const html = `<a href="${authUrl}">Authenticate application with google api</a>
+    <form action="/api/auth" method="post">
+       Enter code:
+       <input type="text" name="code" placeholder="Code ..." />
+       <br>
+       <button type="submit">Submit</button>
+    </form>`
+    res.send(html)
+  }
+})
+
+// if (!process.env.is_prod) {
+//   const opts = { subdomain:process.env.localtunnel_subdomain }
+//   const tunnel = localtunnel(port, opts, (err, tunnel) => {
+//       console.log('localtunnel url:', tunnel.url)
+//   })
+// }
